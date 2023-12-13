@@ -10,6 +10,8 @@ import hashlib
 import requests
 import base64
 
+from asn1crypto import tsp
+
 class TimeStampRequest():
     def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool =False, \
                  nonce : int =None, cert_req : bool =True, default_hash_oid : tuple = (1, 3, 6, 1, 5, 5, 7, 3, 3),\
@@ -22,8 +24,7 @@ class TimeStampRequest():
         self.nonce = rd.randint(-2**64, 2**64-1) if nonce is None else nonce
         self.tsa_cert_req = cert_req
 
-        if len(extensions) <= 1:
-            self.extensions = extensions
+        self.extensions = extensions
 
         self.hashname = hash_alg
         self.data = data
@@ -68,7 +69,7 @@ class TimeStampRequest():
 
         tsr = decode_timestamp_response(response.content)
         self.check_response(tsr, digest, nonce=self.nonce)
-        return encoder.encode(tsr)
+        return tsr
 
     def check_response(self, response, digest, nonce=None):
         '''
@@ -127,16 +128,18 @@ class TimeStampRequest():
 
         # criando campo cert_req
         tsq.setComponentByPosition(4, self.tsa_cert_req)
+
+        if self.extensions:
+            tsq.setComponentByPosition(5, self.extensions)
+
         return tsq
     
     def get_hash_oid(self, hash_alg : str):
         '''
-            id_kp_timeStamping = univ.ObjectIdentifier((1, 3, 6, 1, 5, 5, 7, 3, 8))
             id_sha1 = univ.ObjectIdentifier((1, 3, 14, 3, 2, 26))
             id_sha256 = univ.ObjectIdentifier((2, 16, 840, 1, 101, 3, 4, 2, 1))
             id_sha384 = univ.ObjectIdentifier((2, 16, 840, 1, 101, 3, 4, 2, 2))
             id_sha512 = univ.ObjectIdentifier((2, 16, 840, 1, 101, 3, 4, 2, 3))
-            id_ct_TSTInfo = univ.ObjectIdentifier((1, 2, 840, 113549, 1, 9, 16, 1, 4))
         '''
 
         if 'id_' + hash_alg not in rfc3161ng.__dict__.keys():
@@ -146,7 +149,7 @@ class TimeStampRequest():
 
 def parse_tsr(tsr : bytearray):
 
-    tspObj = TimeStampResp.load(encoder.encode(tsr))
+    tspObj = tsp.TimeStampResp.load(encoder.encode(tsr))
 
     print("Status Infos")
     print ('Status: ', tspObj['status']['status'].native)
