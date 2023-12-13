@@ -17,7 +17,7 @@ class TimeStampRequest():
     def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool =False, \
                  nonce : int =None, cert_req : bool =True, default_hash_oid : tuple = (1, 3, 6, 1, 5, 5, 7, 3, 3),\
                  url : str = 'http://192.168.88.25/tsq', username=None, passwd=None, \
-                 pub_cert_key : bytearray = None ,*extensions):
+                 pub_cert_key : bytearray = None, digest=None, *extensions):
         
         self.version = version
         self.message_imprint = rfc3161ng.MessageImprint()
@@ -38,6 +38,8 @@ class TimeStampRequest():
         self.timeout = 150
 
         self.certificate = pub_cert_key
+
+        self.digest = digest
 
     def send_query(self, digest=None):
         tsq = self.create_request(digest)
@@ -97,21 +99,20 @@ class TimeStampRequest():
             hashname=self.hashname,
         )
 
-    def create_request(self, digest=None):
+    def create_request(self):
         algorithm_identifier = rfc2459.AlgorithmIdentifier()
         algorithm_identifier.setComponentByPosition(0, self.get_hash_oid(self.hashname))
         
         hashobj = hashlib.new("sha256" if 'id_' + self.hashname not in rfc3161ng.__dict__.keys() else self.hashname)
 
-        if self.data is not None:
+        if self.data is not None and self.digest is None:
             if not isinstance(self.data, bytes):
                 self.data = self.data.encode()
             hashobj.update(self.data)
             digest =  hashobj.digest()
-        elif digest:
-            # verifica se o tamanho do hash passado é compatível com o algoritmo
-            assert len(digest) == hashobj.digest_size, 'digest length is wrong %s != %s' % (len(digest), hashobj.digest_size)
-            #pass
+        elif self.digest is not None:
+            digest = self.digest
+
         
         # criando request
         tsq = rfc3161ng.TimeStampReq()
