@@ -171,25 +171,25 @@ def parse_tsr(tsr : bytearray, tsq_had_error : bool):
     print('FailureInfo: ', tspObj['status']['fail_info'].native)
     print('StatusString: ', tspObj['status']['status_string'].native)
 
+    if tsq_had_error or 'granted' not in tspObj['status']['status'].native:
+        return None
 
-    '''
-	# Recupera obj TstInfo
-	timeStampToken = tspObj['time_stamp_token']
-	content = timeStampToken['content']
-	encapContentInfo = content['encap_content_info']
-	tstInfo = encapContentInfo['content'].parsed
+    print("TimeStampToken Infos")
+    # Recupera obj TstInfo
+    timeStampToken = tspObj['time_stamp_token']
+    content = timeStampToken['content']
+    encapContentInfo = content['encap_content_info']
+    tstInfo = encapContentInfo['content'].parsed
 
-	# Mostra algumas informações de TstInfo
-	print('Generation_time:', tstInfo['gen_time'].native)
-	print('Policy:', tstInfo['policy'].native)
-	print('Serial_number:', tstInfo['serial_number'].native)
-	print('Nonce:', tstInfo['nonce'].native)
-	print('Tem extensions? ', True if tstInfo['extensions'].native != None else "False")
-	print('Hash_algorithm:', tstInfo['message_imprint']['hash_algorithm']['algorithm'].native)
-	
-	print('Tsa:')
-	tsaOrderedDict = tstInfo['tsa'].native
-	for key in tsaOrderedDict:
-		print("     ", key, ": ", tsaOrderedDict[key])
-    '''
-	
+    # Mostra algumas informações de TstInfo
+    print('Generation_time:', tstInfo['gen_time'].native)
+    print('Policy:', tstInfo['policy'].native)
+    print('Serial_number:', tstInfo['serial_number'].native)
+    print('Nonce:', tstInfo['nonce'].native)
+    print('Tem extensions? ', True if tstInfo['extensions'].native != None else "False")
+    print('Hash_algorithm:', tstInfo['message_imprint']['hash_algorithm']['algorithm'].native)
+
+    print('Tsa:')
+    tsaOrderedDict = tstInfo['tsa'].native
+    for key in tsaOrderedDict:
+        print("     ", key, ": ", tsaOrderedDict[key])
