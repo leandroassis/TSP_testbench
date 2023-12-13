@@ -11,6 +11,7 @@ import requests
 import base64
 
 from asn1crypto import tsp
+from asn1crypto.core import Sequence
 
 class TimeStampRequest():
     def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool =False, \
@@ -67,8 +68,14 @@ class TimeStampRequest():
             hashobj.update(self.data)
             digest =  hashobj.digest()
 
-        tsr = decode_timestamp_response(response.content)
+        tsr = self.decode_timestamp_response(response.content)
         self.check_response(tsr, digest, nonce=self.nonce)
+        return tsr
+
+    def decode_timestamp_response(self, response):
+        tsr, substrate = decoder.decode(response, asn1Spec=rfc3161ng.TimeStampResp())
+        if substrate:
+            raise ValueError('Extra data returned')
         return tsr
 
     def check_response(self, response, digest, nonce=None):
@@ -147,14 +154,23 @@ class TimeStampRequest():
         
         return rfc3161ng.__dict__['id_' + hash_alg]
 
-def parse_tsr(tsr : bytearray):
+class TimeStampResponse(Sequence):
+    _fields = [
+        ('status', tsp.PKIStatusInfo),
+    ]
 
-    tspObj = tsp.TimeStampResp.load(encoder.encode(tsr))
+def parse_tsr(tsr : bytearray, tsq_had_error : bool):
+
+    if tsq_had_error:
+        tspObj = TimeStampResponse.load(encoder.encode(tsr))
+    else:
+        tspObj = tsp.TimeStampResp.load(encoder.encode(tsr))
 
     print("Status Infos")
     print ('Status: ', tspObj['status']['status'].native)
-    print('FailureInfo: ', tspObj['status']['failInfo'].native)
-    print('StatusString: ', tspObj['status']['statusString'].native)
+    print('FailureInfo: ', tspObj['status']['fail_info'].native)
+    print('StatusString: ', tspObj['status']['status_string'].native)
+
 
     '''
 	# Recupera obj TstInfo
