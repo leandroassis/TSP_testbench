@@ -13,6 +13,8 @@ import base64
 from asn1crypto import tsp
 from asn1crypto.core import Sequence
 
+WIDTH_LINE = 40
+
 class TimeStampRequest():
     def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool =False, \
                  nonce : int =None, cert_req : bool =True, default_hash_oid : tuple = (1, 3, 6, 1, 5, 5, 7, 3, 3),\
@@ -41,8 +43,8 @@ class TimeStampRequest():
 
         self.digest = digest
 
-    def send_query(self, digest=None):
-        tsq = self.create_request(digest)
+    def send_query(self):
+        tsq = self.create_request()
 
         binary_request = encode_timestamp_request(tsq)
 
@@ -160,22 +162,25 @@ class TimeStampResponse(Sequence):
         ('status', tsp.PKIStatusInfo),
     ]
 
-def parse_tsr(tsr : bytearray, tsq_had_error : bool):
+def parse_tsr(tsr : bytearray):
 
-    if tsq_had_error:
-        tspObj = TimeStampResponse.load(encoder.encode(tsr))
-    else:
-        tspObj = tsp.TimeStampResp.load(encoder.encode(tsr))
+    tspObj = TimeStampResponse.load(encoder.encode(tsr))
 
-    print("Status Infos")
+    print(" Status Infos ".center(WIDTH_LINE, '='), end='\n\n')
     print ('Status: ', tspObj['status']['status'].native)
     print('FailureInfo: ', tspObj['status']['fail_info'].native)
     print('StatusString: ', tspObj['status']['status_string'].native)
+    print("="*WIDTH_LINE, end='\n\n')
 
-    if tsq_had_error or 'granted' not in tspObj['status']['status'].native:
+    print(" Token Infos ".center(WIDTH_LINE, '='))
+    # se não existir um token, termina aqui
+    if tspObj['status']['status'].native != 'granted':
+        print("Não existe um token.")
+        print("="*WIDTH_LINE, end='\n\n')
         return None
+    
+    tspObj = tsp.TimeStampResp.load(encoder.encode(tsr))
 
-    print("TimeStampToken Infos")
     # Recupera obj TstInfo
     timeStampToken = tspObj['time_stamp_token']
     content = timeStampToken['content']
@@ -189,8 +194,11 @@ def parse_tsr(tsr : bytearray, tsq_had_error : bool):
     print('Nonce:', tstInfo['nonce'].native)
     print('Tem extensions? ', True if tstInfo['extensions'].native != None else "False")
     print('Hash_algorithm:', tstInfo['message_imprint']['hash_algorithm']['algorithm'].native)
+    print('Hashed_message:', tstInfo['message_imprint']['hashed_message'].native)
 
     print('Tsa:')
     tsaOrderedDict = tstInfo['tsa'].native
     for key in tsaOrderedDict:
         print("     ", key, ": ", tsaOrderedDict[key])
+    
+    print("="*WIDTH_LINE, end='\n\n')
