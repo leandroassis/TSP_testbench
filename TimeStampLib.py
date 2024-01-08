@@ -16,7 +16,7 @@ from asn1crypto.core import Sequence
 WIDTH_LINE = 40
 
 class TimeStampRequest():
-    def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool =False, \
+    def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool = False, \
                  nonce : int =None, cert_req : bool =True, default_hash_oid : tuple = (1, 3, 6, 1, 5, 5, 7, 3, 3),\
                  url : str = 'http://192.168.88.25/tsq', username=None, passwd=None, \
                  pub_cert_key : bytearray = None, digest=None, *extensions):
@@ -131,7 +131,7 @@ class TimeStampRequest():
 
         # criando campo req_policy
         if self.req_policy:
-            tsq.setComponentByPosition(2, rfc3161ng.types.TSAPolicyId(self.req_policy))
+            tsq.setComponentByPosition(2, rfc3161ng.types.TSAPolicyId())
         
         # criando campo nonce
         tsq.setComponentByPosition(3, int(self.nonce))
@@ -188,13 +188,14 @@ def parse_tsr(tsr : bytearray):
     tstInfo = encapContentInfo['content'].parsed
 
     # Mostra algumas informações de TstInfo
+    print('Version:', tstInfo['version'].native)
     print('Generation_time:', tstInfo['gen_time'].native)
     print('Policy:', tstInfo['policy'].native)
     print('Serial_number:', tstInfo['serial_number'].native)
     print('Nonce:', tstInfo['nonce'].native)
     print('Tem extensions? ', True if tstInfo['extensions'].native != None else "False")
     print('Hash_algorithm:', tstInfo['message_imprint']['hash_algorithm']['algorithm'].native)
-    print('Hashed_message:', tstInfo['message_imprint']['hashed_message'].native)
+    print('Hashed_message:', ''.join('{:02x}'.format(x) for x in tstInfo['message_imprint']['hashed_message'].native))
 
     print('Tsa:')
     tsaOrderedDict = tstInfo['tsa'].native
