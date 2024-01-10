@@ -16,14 +16,13 @@ from asn1crypto.core import Sequence
 WIDTH_LINE = 40
 
 class TimeStampRequest():
-    def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : bool = False, \
-                 nonce : int =None, cert_req : bool =True, default_hash_oid : tuple = (1, 3, 6, 1, 5, 5, 7, 3, 3),\
-                 url : str = 'http://192.168.88.25/tsq', username=None, passwd=None, \
-                 pub_cert_key : bytearray = None, digest=None, *extensions):
+    def __init__(self, data=None, hash_alg : str = "sha256", version : str ="v1", request_policy : tuple = None, \
+                 nonce : int =None, cert_req : bool = None, url : str=None, username=None, passwd=None, \
+                 pub_cert_key : bytearray = None, digest=None, extensions : rfc2459.Extensions=None):
         
         self.version = version
         self.message_imprint = rfc3161ng.MessageImprint()
-        self.req_policy = request_policy
+        self.req_policy = univ.ObjectIdentifier(request_policy) if request_policy is not None else None
         self.nonce = rd.randint(-2**64, 2**64-1) if nonce is None else nonce
         self.tsa_cert_req = cert_req
 
@@ -32,7 +31,7 @@ class TimeStampRequest():
         self.hashname = hash_alg
         self.data = data
 
-        self.random_hash_oid = default_hash_oid
+        self.random_hash_oid = (1, 3, 6, 1, 5, 5, 7, 3, 3)
 
         self.url = url
         self.username = username
@@ -74,7 +73,7 @@ class TimeStampRequest():
 
         tsr = self.decode_timestamp_response(response.content)
         self.check_response(tsr, digest, nonce=self.nonce)
-        return tsr
+        return tsr, tsq
 
     def decode_timestamp_response(self, response):
         tsr, substrate = decoder.decode(response, asn1Spec=rfc3161ng.TimeStampResp())
@@ -131,13 +130,15 @@ class TimeStampRequest():
 
         # criando campo req_policy
         if self.req_policy:
-            tsq.setComponentByPosition(2, rfc3161ng.types.TSAPolicyId())
+            tsq.setComponentByPosition(2, self.req_policy)
         
         # criando campo nonce
-        tsq.setComponentByPosition(3, int(self.nonce))
+        if self.nonce:
+            tsq.setComponentByPosition(3, int(self.nonce))
 
         # criando campo cert_req
-        tsq.setComponentByPosition(4, self.tsa_cert_req)
+        if self.tsa_cert_req:
+            tsq.setComponentByPosition(4, self.tsa_cert_req)
 
         if self.extensions:
             tsq.setComponentByPosition(5, self.extensions)
@@ -162,7 +163,19 @@ class TimeStampResponse(Sequence):
         ('status', tsp.PKIStatusInfo),
     ]
 
-def parse_tsr(tsr : bytearray):
+def parse_tsq(tsq):
+    print("version: ", tsq['version'])
+    print("hash_algorithm: ", tsq['messageImprint']['hashAlgorithm']['algorithm'])
+    print("hashed_message: ", ''.join('{:02x}'.format(x) for x in tsq['messageImprint']['hashedMessage']))
+    try:
+        print("policy: ", tsq['reqPolicy'])
+    except:
+        print("None")
+    print("nonce: ", tsq['nonce'])
+    print("cert_req: ", tsq['certReq'])
+    print(tsq['extensions'])
+
+def parse_tsr(tsr : bytearray, show_signer_info : bool = False):
 
     tspObj = TimeStampResponse.load(encoder.encode(tsr))
 
@@ -193,13 +206,40 @@ def parse_tsr(tsr : bytearray):
     print('Policy:', tstInfo['policy'].native)
     print('Serial_number:', tstInfo['serial_number'].native)
     print('Nonce:', tstInfo['nonce'].native)
-    print('Tem extensions? ', True if tstInfo['extensions'].native != None else "False")
     print('Hash_algorithm:', tstInfo['message_imprint']['hash_algorithm']['algorithm'].native)
     print('Hashed_message:', ''.join('{:02x}'.format(x) for x in tstInfo['message_imprint']['hashed_message'].native))
-
+    print('Accuracy:', tstInfo['accuracy'].native)
+    print('Ordering:', tstInfo['ordering'].native)
+    
     print('Tsa:')
     tsaOrderedDict = tstInfo['tsa'].native
     for key in tsaOrderedDict:
         print("     ", key, ": ", tsaOrderedDict[key])
+
+    if tstInfo['extensions'].native != None:
+        print('Extensions:')
+        for extensionsOrderedDict in tstInfo['extensions'].native:
+            for key in extensionsOrderedDict:
+                print("     ", key, ": ", extensionsOrderedDict[key])
     
+    signer_infos = content['signer_infos']
+    certificates = content['certificates']
+                
+    if show_signer_info:
+        print("\nSignerInfo: ")
+        for signer_info in signer_infos:
+            print("     ", "Version: ", signer_info['version'].native)
+            print("     ", "Sid: ", signer_info['sid'].native)
+            print("     ", "Digest_algorithm: ", signer_info['digest_algorithm'].native)
+            print("     ", "Signature_algorithm: ", signer_info['signature_algorithm'].native)
+            print("     ", "Signature: ", signer_info['signature'].native)
+            print("     ", "Signed_attrs: ", signer_info['signed_attrs'].native)
+            print("     ", "Unsigned_attrs: ", signer_info['unsigned_attrs'].native)
+
+    if certificates:
+        print("\nCertificate: ")
+        for certificate in certificates:
+            print("     ", certificate.native)
+            
+
     print("="*WIDTH_LINE, end='\n\n')
