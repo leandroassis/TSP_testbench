@@ -229,11 +229,20 @@ def parse_tsr(tsr : bytearray, show_signer_info : bool = False):
         print("\nSignerInfo: ")
         for signer_info in signer_infos:
             print("     ", "Version: ", signer_info['version'].native)
-            print("     ", "Sid: ", signer_info['sid'].native)
+            print("     ", "Sid: ")
+
+            for key in signer_info['sid'].native['issuer']:
+                print("         ", key, ": ", signer_info['sid'].native['issuer'][key])
+
             print("     ", "Digest_algorithm: ", signer_info['digest_algorithm'].native)
             print("     ", "Signature_algorithm: ", signer_info['signature_algorithm'].native)
-            print("     ", "Signature: ", signer_info['signature'].native)
-            print("     ", "Signed_attrs: ", signer_info['signed_attrs'].native)
+            print("     ", "Signature: ", ''.join('{:02x}'.format(x) for x in signer_info['signature'].native))
+            print("     ", "Signed_attrs: ")
+
+            for idx in signer_info['signed_attrs'].native:
+                for key in idx:
+                    print("         ", key, ": ", idx[key])
+
             print("     ", "Unsigned_attrs: ", signer_info['unsigned_attrs'].native)
 
     if certificates:
