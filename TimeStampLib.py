@@ -10,6 +10,7 @@ import hashlib
 import requests
 import base64
 
+from asn1crypto.cms import SignerInfo
 from asn1crypto import tsp
 from asn1crypto.core import Sequence
 
@@ -69,10 +70,10 @@ class TimeStampRequest():
         if self.data is not None:
             hashobj = hashlib.new("sha256" if 'id_' + self.hashname not in rfc3161ng.__dict__.keys() else self.hashname)
             hashobj.update(self.data)
-            digest =  hashobj.digest()
+            self.digest =  hashobj.digest()
 
         tsr = self.decode_timestamp_response(response.content)
-        self.check_response(tsr, digest, nonce=self.nonce)
+        self.valid = self.check_response(tsr, self.digest, nonce=self.nonce)
         return tsr, tsq
 
     def decode_timestamp_response(self, response):
@@ -224,7 +225,7 @@ def parse_tsr(tsr : bytearray, show_signer_info : bool = False):
     
     signer_infos = content['signer_infos']
     certificates = content['certificates']
-                
+
     if show_signer_info:
         print("\nSignerInfo: ")
         for signer_info in signer_infos:
@@ -248,7 +249,8 @@ def parse_tsr(tsr : bytearray, show_signer_info : bool = False):
     if certificates:
         print("\nCertificate: ")
         for certificate in certificates:
-            print("     ", certificate.native)
+            for key in certificate.native['tbs_certificate']:
+                print("     ", key, ": ", certificate.native['tbs_certificate'][key])
             
 
     print("="*WIDTH_LINE, end='\n\n')
